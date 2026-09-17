@@ -18,6 +18,31 @@
       },
       "predictiveBackGestureEnabled": false
     },
+    "plugins": [
+      "expo-notifications",
+      "expo-splash-screen",
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "VKU Space cần quyền để thêm lịch booking vào lịch cá nhân."
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "recordAudioAndroid": false,
+          "enableBackgroundPlayback": false
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "VKU Space cần quyền camera để quét mã check-in.",
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": true
+        }
+      ]
+    ],
     "web": {
       "favicon": "./assets/favicon.png"
     }

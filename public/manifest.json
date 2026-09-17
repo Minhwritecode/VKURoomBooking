@@ -1,0 +1,12 @@
+{
+  "name": "VKU Space - Study Room Booking",
+  "short_name": "VKU Space",
+  "description": "Tìm và đặt phòng học VKU nhanh chóng, kể cả khi offline.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F0F9FF",
+  "theme_color": "#0284C7",
+  "lang": "vi"
+}
