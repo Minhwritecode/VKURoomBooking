@@ -2,11 +2,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import type { Room } from '../data/mockData';
+import { signOutFirebase } from '../services/firebase';
 
 export type Session = {
   id: string;
   name: string;
   email: string;
+  role?: 'user' | 'admin';
+  emailVerified?: boolean;
 };
 
 export type ReservationStatus = 'reserved' | 'checked-in' | 'completed' | 'no-show';
@@ -22,6 +25,7 @@ export type WaitlistEntry = {
   slotLabel: string;
   createdAt: string;
   status: 'waiting' | 'notified' | 'converted';
+  ownerId?: string;
 };
 
 export type RoomReview = {
@@ -31,6 +35,7 @@ export type RoomReview = {
   rating: 1 | 2 | 3 | 4 | 5;
   note: string;
   createdAt: string;
+  ownerId?: string;
 };
 
 export type Reservation = {
@@ -45,6 +50,7 @@ export type Reservation = {
   startAt: string;
   passCode: string;
   createdAt: string;
+  ownerId?: string;
   status?: ReservationStatus;
   checkInAt?: string;
   completedAt?: string;
@@ -65,15 +71,19 @@ type BookingState = {
   roomOverrides: Record<string, Partial<Room>>;
   hasHydrated: boolean;
   setHasHydrated: (value: boolean) => void;
+  setAuthSession: (session: Session | null) => void;
   login: (email: string, name?: string) => void;
   register: (name: string, email: string) => void;
-  logout: () => void;
+  logout: () => void | Promise<void>;
   toggleFavorite: (roomId: string) => void;
   markSyncPending: (reservationId: string) => void;
   clearSyncPending: (reservationId: string) => void;
   createRoom: (room: Room) => void;
   deleteRoom: (roomId: string) => void;
   setRemoteRooms: (rooms: Room[]) => void;
+  setRemoteReservations: (reservations: Reservation[]) => void;
+  setRemoteWaitlist: (entries: WaitlistEntry[]) => void;
+  setRemoteReviews: (reviews: RoomReview[]) => void;
   createReservation: (input: BookingInput) => Reservation;
   cancelReservation: (id: string) => void;
   checkInReservation: (id: string, passCode: string) => { ok: boolean; message: string };
@@ -104,6 +114,7 @@ export const useBookingStore = create<BookingState>()(
       roomOverrides: {},
       hasHydrated: false,
       setHasHydrated: (value) => set({ hasHydrated: value }),
+      setAuthSession: (session) => set({ session }),
       login: (email, name) =>
         set({
           session: {
@@ -114,7 +125,7 @@ export const useBookingStore = create<BookingState>()(
         }),
       register: (name, email) =>
         set({ session: { id: email.toLowerCase(), name, email: email.toLowerCase() } }),
-      logout: () => set({ session: null }),
+      logout: async () => { await signOutFirebase().catch(() => undefined); set({ session: null }); },
       toggleFavorite: (roomId) =>
         set((state) => ({ favoriteRoomIds: state.favoriteRoomIds.includes(roomId) ? state.favoriteRoomIds.filter((id) => id !== roomId) : [...state.favoriteRoomIds, roomId] })),
       markSyncPending: (reservationId) =>
@@ -124,9 +135,19 @@ export const useBookingStore = create<BookingState>()(
       createRoom: (room) => set((state) => ({ customRooms: [...state.customRooms, room] })),
       deleteRoom: (roomId) => set((state) => ({ customRooms: state.customRooms.filter((room) => room.id !== roomId), hiddenRoomIds: state.hiddenRoomIds.includes(roomId) ? state.hiddenRoomIds : [...state.hiddenRoomIds, roomId] })),
       setRemoteRooms: (remoteRooms) => set({ remoteRooms }),
+      setRemoteReservations: (remoteReservations) => set((state) => {
+        const queuedIds = new Set(state.syncQueue);
+        const localPending = state.reservations.filter((item) => queuedIds.has(item.id));
+        const merged = new Map([...remoteReservations, ...localPending].map((item) => [item.id, item]));
+        return { reservations: [...merged.values()].sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime()) };
+      }),
+      setRemoteWaitlist: (remoteWaitlist) => set({ waitlist: [...remoteWaitlist].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) }),
+      setRemoteReviews: (remoteReviews) => set({ reviews: [...remoteReviews].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) }),
       createReservation: (input) => {
+        const ownerId = input.ownerId || get().session?.id;
         const reservation: Reservation = {
           ...input,
+          ...(ownerId ? { ownerId } : {}),
           id: `booking-${Date.now()}`,
           passCode: makePassCode(),
           createdAt: new Date().toISOString(),
@@ -165,17 +186,19 @@ export const useBookingStore = create<BookingState>()(
       joinWaitlist: (input) => {
         const existing = get().waitlist.find((item) => item.roomId === input.roomId && item.dateKey === input.dateKey && item.slotId === input.slotId && item.status === 'waiting');
         if (existing) return existing;
-        const entry: WaitlistEntry = { ...input, id: `wait-${Date.now()}`, createdAt: new Date().toISOString(), status: 'waiting' };
+        const session = get().session;
+        const entry: WaitlistEntry = { ...input, id: `wait-${Date.now()}`, createdAt: new Date().toISOString(), status: 'waiting', ...(session?.id ? { ownerId: session.id } : {}) };
         set((state) => ({ waitlist: [entry, ...state.waitlist] }));
         return entry;
       },
       leaveWaitlist: (id) => set((state) => ({ waitlist: state.waitlist.filter((item) => item.id !== id) })),
       addReview: (input) => {
         const state = get();
-        if (!state.session) return null;
-        const existing = state.reviews.find((item) => item.roomId === input.roomId && item.authorName === state.session?.name);
+        const session = state.session;
+        if (!session) return null;
+        const existing = state.reviews.find((item) => item.roomId === input.roomId && (item.ownerId ? item.ownerId === session.id : item.authorName === session.name));
         if (existing) return existing;
-        const review: RoomReview = { ...input, id: `review-${Date.now()}`, authorName: state.session.name, createdAt: new Date().toISOString() };
+        const review: RoomReview = { ...input, id: `review-${Date.now()}`, authorName: session.name, createdAt: new Date().toISOString(), ownerId: session.id };
         set((current) => ({ reviews: [review, ...current.reviews] }));
         return review;
       },

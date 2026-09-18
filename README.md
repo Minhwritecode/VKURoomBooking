@@ -2,7 +2,7 @@
 
 Ứng dụng mobile React Native + Expo SDK 57 cho sinh viên VKU tìm và đặt phòng học.
 
-## Có gì trong bản demo
+## Phạm vi production
 
 - Browse Rooms: `FlatList` tối ưu, ảnh phòng, tòa nhà/tầng, sức chứa, thiết bị và trạng thái.
 - Bộ lọc tức thì theo từ khóa, tòa A/B/C/V, sức chứa 2-20 chỗ và thiết bị.
@@ -10,12 +10,14 @@
 - Booking pass có QR check-in, mã duy nhất và thao tác hủy lượt đặt.
 - Quick Book tự tìm phòng/slot trống gần nhất theo mục tiêu: yên tĩnh, học nhóm, project hoặc PC cao.
 - Smart Schedule có countdown, cảnh báo chuẩn bị và thêm booking vào lịch hệ thống; web mở Google Calendar.
-- Zustand + AsyncStorage lưu session/booking local-first.
-- Sync queue tự đẩy booking lên API khi có mạng; Firebase adapter có transaction chống trùng và realtime rooms khi thêm env.
+- Firebase Authentication quản lý tài khoản email/mật khẩu, reset password, xác minh email và session persistence trên mobile.
+- Firestore lưu profile, booking, waitlist và review theo `uid`; transaction chống hai người đặt cùng một room/date/slot.
+- Firebase Storage lưu ảnh phòng; Security Rules giới hạn dữ liệu cá nhân và chỉ admin mới được quản trị catalog.
+- Zustand + AsyncStorage là cache/offline queue, không phải nguồn quyền hạn; khi có mạng dữ liệu được reconcile với Firebase.
 - Local notification nhắc trước 15 phút (permission được xử lý an toàn).
 - Splash → auth → home có Three.js morph 3D qua `expo-gl`, kèm fallback native nếu thiết bị không hỗ trợ GL; form auth có morph blobs và transition mượt.
 - Navigation tối ưu theo flow: Native Stack cho chi tiết/chỉnh sửa và Bottom Tabs 4 mục có chủ đích, icon + label, safe area, touch target rõ ràng.
-- Focus Mode thân thiện ADHD: phiên 25/50/90 phút, break tự động 5/10 phút, timer lớn, pause/resume/reset, mục tiêu duy nhất và ambient sound tùy chọn.
+- Focus Mode: phiên 25/50/90 phút, break tự động 5/10 phút, timer lớn, pause/resume/reset, mục tiêu duy nhất và ambient sound tùy chọn.
 - Admin Room Manager: tạo, đổi tên, ảnh từ thư viện, tòa nhà, tầng, sức chứa, mô tả, thiết bị, khóa/mở và xóa phòng; thay đổi được lưu local ngay cả khi offline.
 - Responsive cho mobile, tablet và web; hero/card giới hạn chiều rộng trên màn hình lớn để giữ nhịp đọc tốt.
 - Offline state: phòng seed và booking đã lưu vẫn dùng được khi mất mạng.
@@ -47,9 +49,23 @@ API mẫu:
 
 App vẫn không phụ thuộc API để browse/đặt phòng demo. Đây là chủ ý offline-first; chỉ cần thêm `EXPO_PUBLIC_API_URL` và sync adapter khi triển khai backend thật.
 
-## Firebase production path
+## Bật Firebase production
 
-Có thể thay lớp API bằng Firebase Authentication + Firestore/Storage. App đã có listener realtime cho collection `rooms`, transaction kiểm tra khóa `roomId_dateKey_slotId`, và upload ảnh phòng khi Firebase env được cấu hình. Không commit secrets; dùng `.env`/EAS secrets.
+1. Tạo Firebase project và thêm một **Web app** trong Firebase Console.
+2. Bật **Authentication → Email/Password**, tạo Firestore Database và Storage.
+3. Copy các biến trong `.env.example` sang `.env.local` (không commit file này).
+4. Deploy rule/index production:
+
+```bash
+npx firebase login
+npx firebase use <your-project-id>
+npx firebase deploy --only firestore:rules,firestore:indexes,storage
+```
+
+5. Đăng ký user đầu tiên, sau đó trong Firebase Console đổi `users/<uid>.role` thành `admin` để cấp quyền quản trị. Client không thể tự nâng quyền.
+6. Trên Vercel, thêm cùng các `EXPO_PUBLIC_FIREBASE_*` variables cho **Production**, rồi redeploy.
+
+Các collection production chính: `users`, `rooms`, `bookings`, `waitlist`, `reviews`. Booking dùng key bất biến `roomId_dateKey_slotId`; Firestore transaction là lớp quyết định cuối cùng khi có xung đột.
 
 ## Kiến trúc
 
@@ -71,7 +87,7 @@ npx tsc --noEmit
 npx expo export --platform web
 ```
 
-Để demo offline: mở app một lần, đăng nhập bằng tài khoản demo, đặt booking, sau đó tắt mạng. Session, danh sách phòng seed, booking và QR pass vẫn còn trên máy.
+Để kiểm tra offline: mở app một lần khi đã đăng nhập, tải catalog và đặt booking; sau đó tắt mạng. Cache, QR pass và queue vẫn còn trên máy, sẽ tự đồng bộ khi kết nối trở lại. Nếu booking offline trùng slot đã được người khác giữ, transaction online từ chối bản ghi và queue được gỡ để không retry vô hạn.
 
 ## Feature pack hoàn chỉnh
 
@@ -79,7 +95,7 @@ npx expo export --platform web
 - **Waitlist:** chọn phòng/ngày/slot, chống tham gia trùng; khi booking bị hủy, người đang chờ nhận trạng thái slot đã mở.
 - **Room review:** đánh giá 1–5 sao và ghi chú, chống đánh giá trùng theo phòng/người dùng.
 - **Share booking:** native share sheet trên iOS/Android và Web Share API trên web.
-- **Admin analytics:** tổng phòng, phòng đang khóa, booking, check-in, waitlist và review; Admin có thể tạo/sửa ảnh/tên/sức chứa/thiết bị, khóa/mở và xóa phòng.
+- **Admin analytics:** tổng phòng, phòng đang khóa, booking, check-in, waitlist và review; chỉ tài khoản có `role: admin` mới có thể tạo/sửa ảnh/tên/sức chứa/thiết bị, khóa/mở và xóa phòng khi Firebase bật.
 - **Smart recommendation:** chọn mục tiêu học tập để app ưu tiên phòng phù hợp, kết hợp Quick Book và đặt lại booking gần nhất.
 - **PWA MacBook:** `public/manifest.json`, `public/sw.js`, responsive desktop layout, shadow/hover/focus feedback và offline shell cache.
 
@@ -101,7 +117,7 @@ npx expo run:android
 
 ## API và triển khai
 
-Docker API demo có thêm các endpoint: `GET/POST /waitlist`, `DELETE /waitlist/:id`, `GET/POST /reviews`, `POST /check-in`, cùng room CRUD, booking collision và `/admin/audit`. API in-memory phù hợp demo local; production nên thay bằng Firebase/Firestore có Authentication và Security Rules.
+Docker API demo có thêm các endpoint: `GET/POST /waitlist`, `DELETE /waitlist/:id`, `GET/POST /reviews`, `POST /check-in`, cùng room CRUD, booking collision và `/admin/audit`. API in-memory chỉ là fallback/dev; production dùng Firebase/Firestore có Authentication và Security Rules.
 
 Vercel dùng cấu hình trong `vercel.json`:
 
@@ -112,7 +128,7 @@ npx expo export --platform web
 npx vercel --prod
 ```
 
-`dist/` không được commit; Vercel sẽ build trực tiếp từ source. Firebase là adapter tùy chọn qua các biến `EXPO_PUBLIC_FIREBASE_*` trong `.env.local`, không commit secret.
+`dist/` không được commit; Vercel sẽ build trực tiếp từ source. Firebase config dùng các biến `EXPO_PUBLIC_FIREBASE_*` trong `.env.local`/Vercel Environment Variables; không commit file env hoặc service-account key.
 
 ## Kiểm tra trước khi nộp
 

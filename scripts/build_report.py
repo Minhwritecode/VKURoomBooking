@@ -102,7 +102,7 @@ rows = [
     (15, "Admin management", "Tạo/sửa/xóa/khóa, đổi ảnh, tên, tòa, tầng, capacity, equipment."),
     (16, "Admin analytics", "Counters/progress cho rooms, bookings, check-ins, waitlist, reviews."),
     (17, "Motion/UI system", "Morph Three.js native/web fallback, responsive, safe-area, reduce motion."),
-    (18, "Docker & Firebase", "Node API + Compose; rooms listener, booking transaction, Storage adapter."),
+    (18, "Docker & Firebase", "Node API + Compose; Auth, Firestore users/rooms/bookings/waitlist/reviews, transaction, Storage and Security Rules."),
     (19, "MacBook PWA", "Manifest + service worker shell cache, standalone web output."),
 ]
 
@@ -121,18 +121,18 @@ story = [
     P("1. FEATURE IMPLEMENTATION CHECKLIST (CONT.)", "H1Custom"),
     checklist(rows[10:]),
     P("2. ARCHITECTURE & DATA FLOW", "H1Custom"),
-    P("Expo / React Native / Expo Web → Native Stack + Bottom Tabs → responsive UI → Zustand + AsyncStorage → Firebase adapter (optional) / Node REST API in Docker → PWA manifest + service-worker cache.", "CodeCustom"),
+    P("Expo / React Native / Expo Web → Native Stack + Bottom Tabs → responsive UI → Zustand + AsyncStorage cache → Firebase Authentication + Firestore + Storage/Security Rules → Node REST API in Docker → PWA manifest + service-worker cache.", "CodeCustom"),
     P("Booking flow", "H2Custom"),
     P("1) Người dùng tìm phòng hoặc chọn learning goal. 2) Date/slot selector khóa slot đã bận. 3) Reservation được tạo local với pass code và đưa vào syncQueue. 4) Notification được hẹn 15 phút trước giờ bắt đầu. 5) QR/manual code xác thực check-in. 6) Khi online, queue sync qua API hoặc Firestore transaction.", "BodyCustom"),
-    P("State được persist gồm session, reservations, favorites, waitlist, reviews, room overrides và queue. Firebase listener nhận rooms realtime; Storage upload ảnh phòng khi Admin cấu hình env.", "BodyCustom"),
+    P("State được cache gồm session, reservations, favorites, waitlist, reviews, room overrides và queue. Firebase listener nhận rooms, bookings, waitlist và reviews theo uid realtime; Storage upload ảnh phòng chỉ cho admin.", "BodyCustom"),
     PageBreak(),
     P("3. UX DECISIONS & EVIDENCE", "H1Custom"),
     P("┌──────────────────────────────────────────────────────────┐<br/>│ VKU SPACE · Booking tiếp theo · Đặt nhanh                 │<br/>│ [ 🔎 Tìm phòng, tòa nhà... ]                               │<br/>│ [Tất cả] [Tòa A] [2–6 chỗ] [Projector]                    │<br/>│ 21 phòng phù hợp                         Trạng thái live   │<br/>│ [ẢNH] Lab A3-101 · Available · 20 chỗ · Đặt               │<br/>│ [ẢNH] Studio C-204 · Available · 12 chỗ · Đặt             │<br/>│ Khám phá · Tập trung · Lịch đặt · Hồ sơ                    │<br/>└──────────────────────────────────────────────────────────┘", "CodeCustom"),
-    P("Search và filter nằm trong cùng scroll context để không bị cắt; desktop dùng max-width/grid 2 cột, mobile về một cột. Search box có shadow và button/chip có hover/focus feedback. Morph Three.js chỉ dùng ở splash/auth/hero/modal, không chạy 3D liên tục trong FlatList. ADHD-friendly bằng một CTA chính, Quick Book, “đặt lại”, countdown và ít quyết định đồng thời.", "BodyCustom"),
+    P("Search và filter nằm trong cùng scroll context để không bị cắt; desktop dùng max-width/grid 2 cột, mobile về một cột. Search box có shadow và button/chip có hover/focus feedback. Morph Three.js chỉ dùng ở splash/auth/hero/modal, không chạy 3D liên tục trong FlatList. Low-friction UX bằng một CTA chính, Quick Book, “đặt lại”, countdown và ít quyết định đồng thời.", "BodyCustom"),
     P("4. TECHNICAL CHALLENGES & RESOLUTIONS", "H1Custom"),
-    P("Conflict prevention: UI khóa slot đã biết; Firebase runTransaction dùng key roomId_dateKey_slotId; backend trả 409 nếu trùng. Offline: AsyncStorage giữ dữ liệu và syncQueue thử sync tuần tự khi NetInfo báo online. QR: expo-camera hỗ trợ native, manual code fallback cho desktop/permission failure. Motion: native expo-gl, web canvas và fallback tĩnh giúp trải nghiệm mượt hơn. Admin: local override hoạt động offline, Firebase Storage nhận ảnh khi có cấu hình.", "BodyCustom"),
+    P("Conflict prevention: UI khóa slot đã biết; Firebase runTransaction dùng key roomId_dateKey_slotId; backend trả 409 nếu trùng. Offline: AsyncStorage giữ dữ liệu và syncQueue retry tuần tự khi NetInfo báo online; xung đột được gỡ khỏi queue. QR: expo-camera hỗ trợ native, manual code fallback cho desktop/permission failure. Motion: native expo-gl, web canvas và fallback tĩnh giúp trải nghiệm mượt hơn. Admin: Firestore/Storage ghi thật khi tài khoản có role admin.", "BodyCustom"),
     P("5. VERIFICATION & REPRODUCIBILITY", "H1Custom"),
-    P("Đã chạy thành công: npx tsc --noEmit; expo export --platform web/ios/android; node --check backend/server.js; docker compose config; git diff --check. Docker image runtime cần Docker daemon đang chạy. Firebase là production path tùy chọn; không commit credentials.", "BodyCustom"),
+    P("Đã chạy thành công: npx tsc --noEmit; expo export --platform web; node --check backend/server.js; docker compose config; git diff --check. Docker image runtime cần Docker daemon đang chạy. Firebase config đi qua environment variables; không commit credentials.", "BodyCustom"),
     P("Cài đặt: npm install → npx expo start (Expo Go) hoặc npx expo start --web (MacBook/PWA). Development build được khuyến nghị cho camera QR, notification, Calendar và native Three.js.", "BodyCustom"),
 ]
 

@@ -34,7 +34,7 @@ VKU Space giải quyết nhu cầu tìm phòng học/phòng máy, xem trạng th
 | 15 | Admin management | ✅ Complete | Tạo/sửa/xóa/khóa phòng, đổi ảnh Firebase Storage, tên, tòa, tầng, capacity, equipment. |
 | 16 | Admin analytics | ✅ Complete | Counters và progress card cho rooms, bookings, check-ins, waitlist, reviews. |
 | 17 | Motion/UI system | ✅ Complete | Splash/auth morph Three.js, native GL/web canvas fallback, responsive layout, safe-area, reduce-motion fallback. |
-| 18 | Docker & cloud path | ✅ Complete | Node API + Docker Compose; Firebase rooms listener, booking transaction và Storage adapter. |
+| 18 | Docker & cloud path | ✅ Complete | Node API + Docker Compose; Firebase Authentication, Firestore rooms/bookings/waitlist/reviews, transaction và Storage adapter. |
 | 19 | MacBook PWA | ✅ Complete | `manifest.json`, service worker shell cache, installable standalone web output. |
 
 ## 3. Architecture & data flow
@@ -50,10 +50,11 @@ Expo / React Native / Expo Web
         │      ├── waitlist / reviews / room overrides
         │      └── syncQueue for offline-first booking
         │
-        ├── Firebase adapter (optional production path)
-        │      ├── Firestore rooms onSnapshot
-        │      ├── booking transaction
-        │      └── Storage room image upload
+        ├── Firebase production adapter
+        │      ├── Authentication + AsyncStorage persistence
+        │      ├── Firestore users / rooms / bookings / waitlist / reviews
+        │      ├── booking transaction + uid-based Security Rules
+        │      └── Storage room image upload (admin only)
         │
         ├── Node REST API in Docker (local adapter)
         └── Web PWA: manifest + service-worker cache
@@ -92,7 +93,7 @@ The original report supplied for the field-survey project was reused as the repo
 - Search và filter nằm trong cùng một scroll context nên không bị cắt ở cuối màn hình.
 - Room card dùng ảnh thật/remote URL, trạng thái màu và CTA rõ; desktop dùng grid, mobile dùng một cột.
 - Auth/splash dùng morph motion có kiểm soát; phần browse ưu tiên tốc độ đọc và scroll 60fps.
-- ADHD-friendly: một CTA chính, quick book, “đặt lại”, countdown và ít quyết định đồng thời.
+- Low-friction UX: một CTA chính, quick book, “đặt lại”, countdown và ít quyết định đồng thời.
 
 ## 5. Technical challenges & resolutions
 
@@ -102,7 +103,7 @@ Local UI khóa slot đã biết; khi có Firebase, `runTransaction` đọc docum
 
 ### Challenge 2 — Offline nhưng vẫn dễ hiểu
 
-Session, catalog seed, booking, QR pass, waitlist và review được persist bằng AsyncStorage. Booking mới vào `syncQueue`; khi NetInfo báo online, app thử sync tuần tự và giữ lại item lỗi. UI vẫn hiển thị local state để người dùng không bị mất thao tác.
+Session, catalog seed, booking, QR pass, waitlist và review được cache bằng AsyncStorage. Booking mới vào `syncQueue`; khi NetInfo báo online, app thử sync tuần tự, xử lý xung đột và giữ lại lỗi mạng để retry. UI vẫn hiển thị local state để người dùng không bị mất thao tác.
 
 ### Challenge 3 — QR/camera khác nhau giữa web và native
 
@@ -114,7 +115,7 @@ Three.js chỉ được dùng ở splash/auth/hero và có native `expo-gl`, web
 
 ### Challenge 5 — Ảnh phòng và quản trị
 
-Admin Room Manager giữ bản chỉnh sửa local ngay cả offline. Khi Firebase env có đủ, ảnh từ ImagePicker được upload vào Storage; nếu chưa cấu hình thì URI local vẫn giữ được cho phiên demo.
+Admin Room Manager cập nhật local ngay lập tức và ghi Firestore khi Firebase đã cấu hình; quyền ghi được Security Rules giới hạn cho `role: admin`. Ảnh từ ImagePicker được upload vào Storage với giới hạn MIME/size; khi chưa cấu hình thì URI local vẫn giữ được cho phiên demo.
 
 ## 6. Verification and reproducibility
 
@@ -130,4 +131,4 @@ docker compose config
 git diff --check
 ```
 
-Kết quả export web/iOS/Android và static checks đạt; Docker Compose parse thành công. Docker image runtime cần Docker daemon đang chạy mới có thể build/launch. Firebase là production path tùy chọn, không commit credentials.
+Kết quả export web và static checks đạt; Docker Compose parse thành công. Docker image runtime cần Docker daemon đang chạy mới có thể build/launch. Firebase config được cấp qua environment variables; không commit credentials hoặc service-account key.

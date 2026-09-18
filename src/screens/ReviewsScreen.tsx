@@ -5,6 +5,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, shadow } from '../theme';
 import { useBookingStore } from '../store/useBookingStore';
+import { createFirebaseReview, isFirebaseConfigured } from '../services/firebase';
 
 type RootStackParamList = { AppTabs: undefined; Reviews: undefined };
 type Props = NativeStackScreenProps<RootStackParamList, 'Reviews'>;
@@ -25,7 +26,8 @@ export function ReviewsScreen({ navigation }: Props) {
     const draft = getDraft(reservationId);
     const result = addReview({ roomId, rating: draft.rating, note: draft.note.trim() || 'Không gian phù hợp cho buổi học.' });
     if (!result) return;
-    Alert.alert('Cảm ơn bạn', 'Đánh giá đã được lưu trên thiết bị.');
+    if (isFirebaseConfigured) void createFirebaseReview(result).catch(() => undefined);
+    Alert.alert('Cảm ơn bạn', isFirebaseConfigured ? 'Đánh giá đã được đồng bộ.' : 'Đánh giá đã được lưu trên thiết bị.');
   };
 
   return <SafeAreaView style={styles.screen} edges={['top']}><ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
