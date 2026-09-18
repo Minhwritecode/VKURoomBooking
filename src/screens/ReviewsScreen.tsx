@@ -20,7 +20,7 @@ export function ReviewsScreen({ navigation }: Props) {
   const [drafts, setDrafts] = useState<Record<string, ReviewDraft>>({});
   const eligible = useMemo(() => reservations.filter((item) => !reviews.some((review) => review.roomId === item.roomId)), [reservations, reviews]);
   const getDraft = (reservationId: string) => drafts[reservationId] || defaultDraft;
-  const updateDraft = (reservationId: string, patch: Partial<ReviewDraft>) => setDrafts((current) => ({ ...current, [reservationId]: { ...getDraft(reservationId), ...patch } }));
+  const updateDraft = (reservationId: string, patch: Partial<ReviewDraft>) => setDrafts((current) => ({ ...current, [reservationId]: { ...(current[reservationId] || defaultDraft), ...patch } }));
   const submit = (reservationId: string, roomId: string) => {
     const draft = getDraft(reservationId);
     const result = addReview({ roomId, rating: draft.rating, note: draft.note.trim() || 'Không gian phù hợp cho buổi học.' });
