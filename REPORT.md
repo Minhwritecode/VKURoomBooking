@@ -8,7 +8,7 @@
 ## 1. General information & deliverables
 
 - **GitHub repository:** https://github.com/Minhwritecode/VKURoomBooking
-- **Live demo:** cập nhật sau khi Vercel deployment hoàn tất.
+- **Live demo:** https://vku-room-booking-kappa.vercel.app
 - **Technical report PDF:** `output/pdf/VKURoomBooking-Report.pdf`
 
 VKU Space giải quyết nhu cầu tìm phòng học/phòng máy, xem trạng thái và đặt chỗ mà không phải kiểm tra cửa phòng thủ công. Ứng dụng chạy trên iOS, Android, web desktop và PWA trên MacBook; trải nghiệm được thiết kế local-first để các thao tác đã lưu vẫn dùng được khi mất mạng.

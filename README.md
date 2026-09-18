@@ -105,6 +105,8 @@ Docker API demo có thêm các endpoint: `GET/POST /waitlist`, `DELETE /waitlist
 
 Vercel dùng cấu hình trong `vercel.json`:
 
+Live demo: https://vku-room-booking-kappa.vercel.app
+
 ```bash
 npx expo export --platform web
 npx vercel --prod
