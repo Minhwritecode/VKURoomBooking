@@ -51,6 +51,17 @@ App vẫn không phụ thuộc API để browse/đặt phòng demo. Đây là ch
 
 ## Bật Firebase production
 
+### Mô hình quyền production
+
+VKU Space tách rõ **identity** (người dùng đã đăng nhập) và **authorization** (quyền được cấp). Màn hình hồ sơ hiển thị badge `USER` hoặc `ADMIN`; `PREVIEW` chỉ là chế độ kiểm thử giao diện local, không phải quyền thật.
+
+- **User:** tìm/đặt phòng, hủy booking của mình, check-in, waitlist và đánh giá.
+- **Admin:** mọi quyền của user, cộng thêm tạo/sửa/xóa/khóa phòng, đổi ảnh và xem analytics.
+- **Không tự nâng quyền:** client không được tự ghi `role: admin`. Firestore Rules vẫn là lớp chặn cuối cùng.
+- **Quy mô lớn:** khi triển khai quản trị nhiều tài khoản, dùng backend/Cloud Functions với Firebase Admin SDK để cấp custom claims; màn hình admin chỉ gọi endpoint đã xác thực, không ghi role trực tiếp từ client. Sau khi đổi quyền, buộc refresh ID token/đăng nhập lại.
+
+Role preview trong app chỉ nhằm giúp kiểm thử User/Admin trên local khi chưa bật Firebase. Khi Firebase bật, app đọc role production từ hồ sơ và khóa công tắc này.
+
 1. Tạo Firebase project và thêm một **Web app** trong Firebase Console.
 2. Bật **Authentication → Email/Password**, tạo Firestore Database và Storage.
 3. Copy các biến trong `.env.example` sang `.env.local` (không commit file này).
