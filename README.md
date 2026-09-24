@@ -71,7 +71,10 @@ Role preview trong app chỉ nhằm giúp kiểm thử User/Admin trên local kh
 npx firebase login
 npx firebase use <your-project-id>
 npx firebase deploy --only firestore:rules,firestore:indexes,storage
+npx firebase deploy --only functions
 ```
+
+Callable Functions dùng Firebase Admin SDK để cấp `role` và custom claims. Tính năng quản lý tài khoản trong app cần deploy Functions và Firebase project ở plan hỗ trợ Cloud Functions (Blaze). Nếu Functions chưa deploy, màn hình vẫn mở được nhưng thao tác production sẽ báo lỗi rõ ràng và không sửa dữ liệu trực tiếp từ client.
 
 5. Đăng ký user đầu tiên, sau đó trong Firebase Console đổi `users/<uid>.role` thành `admin` để cấp quyền quản trị. Client không thể tự nâng quyền.
 6. Trên Vercel, thêm cùng các `EXPO_PUBLIC_FIREBASE_*` variables cho **Production**, rồi redeploy.
@@ -107,6 +110,7 @@ npx expo export --platform web
 - **Room review:** đánh giá 1–5 sao và ghi chú, chống đánh giá trùng theo phòng/người dùng.
 - **Share booking:** native share sheet trên iOS/Android và Web Share API trên web.
 - **Admin analytics:** tổng phòng, phòng đang khóa, booking, check-in, waitlist và review; chỉ tài khoản có `role: admin` mới có thể tạo/sửa ảnh/tên/sức chứa/thiết bị, khóa/mở và xóa phòng khi Firebase bật.
+- **Admin quản lý tài khoản:** tìm user, cấp/hạ Admin, badge quyền rõ ràng, xác nhận trước khi đổi; backend chặn user tự nâng quyền, Admin tự hạ quyền và hạ Admin cuối cùng.
 - **Smart recommendation:** chọn mục tiêu học tập để app ưu tiên phòng phù hợp, kết hợp Quick Book và đặt lại booking gần nhất.
 - **PWA MacBook:** `public/manifest.json`, `public/sw.js`, responsive desktop layout, shadow/hover/focus feedback và offline shell cache.
 

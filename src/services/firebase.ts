@@ -4,6 +4,7 @@ import { getApp, getApps, initializeApp, type FirebaseApp } from 'firebase/app';
 import { createUserWithEmailAndPassword, getAuth, initializeAuth, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, signInWithEmailAndPassword, signOut, updateProfile, type Auth, type User } from 'firebase/auth';
 import { collection, deleteDoc, doc, getDoc, getFirestore, onSnapshot, query, runTransaction, serverTimestamp, setDoc, where, type Unsubscribe } from 'firebase/firestore';
 import { getDownloadURL, getStorage, ref, uploadBytes } from 'firebase/storage';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import type { Room } from '../data/mockData';
 import type { Reservation, RoomReview, Session, WaitlistEntry } from '../store/useBookingStore';
 
@@ -18,6 +19,32 @@ const config = {
 
 export const isFirebaseConfigured = Boolean(config.apiKey && config.authDomain && config.projectId && config.appId);
 let authInstance: Auth | null = null;
+
+export type ManagedUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: 'user' | 'admin';
+  emailVerified: boolean;
+  disabled: boolean;
+};
+
+function getFirebaseFunctions() {
+  const app = getFirebaseApp();
+  return app ? getFunctions(app, 'asia-southeast1') : null;
+}
+
+function toFriendlyRoleError(error: unknown): Error {
+  const code = String((error as { code?: string })?.code || '');
+  const messages: Record<string, string> = {
+    'functions/permission-denied': 'Bạn không có quyền quản lý tài khoản.',
+    'functions/failed-precondition': 'Thao tác bị từ chối để bảo vệ hệ thống, ví dụ không thể hạ Admin cuối cùng.',
+    'functions/not-found': 'Không tìm thấy tài khoản hoặc backend quản lý quyền chưa được deploy.',
+    'functions/unavailable': 'Dịch vụ quản lý tài khoản đang tạm thời không khả dụng.',
+    'functions/internal': 'Backend quản lý quyền chưa sẵn sàng. Hãy deploy Firebase Functions rồi thử lại.',
+  };
+  return new Error(messages[code] || 'Không thể cập nhật quyền tài khoản. Hãy thử lại.');
+}
 
 export function getFirebaseApp(): FirebaseApp | null {
   if (!isFirebaseConfigured) return null;
@@ -234,4 +261,28 @@ export async function deleteFirebaseBooking(reservation: Reservation): Promise<v
   const auth = getFirebaseAuth();
   if (!db || !auth?.currentUser) return;
   await deleteDoc(doc(db, 'bookings', `${reservation.roomId}_${reservation.dateKey}_${reservation.slotId}`));
+}
+
+export async function listFirebaseManagedUsers(cursor?: string): Promise<{ users: ManagedUser[]; nextCursor?: string }> {
+  const functions = getFirebaseFunctions();
+  if (!functions || !getFirebaseAuth()?.currentUser) throw new Error('AUTH_REQUIRED');
+  try {
+    const callable = httpsCallable<{ cursor?: string }, { users: ManagedUser[]; nextCursor?: string }>(functions, 'listUsers');
+    const result = await callable(cursor ? { cursor } : {});
+    return result.data;
+  } catch (error) {
+    throw toFriendlyRoleError(error);
+  }
+}
+
+export async function updateFirebaseUserRole(userId: string, role: 'user' | 'admin'): Promise<ManagedUser> {
+  const functions = getFirebaseFunctions();
+  if (!functions || !getFirebaseAuth()?.currentUser) throw new Error('AUTH_REQUIRED');
+  try {
+    const callable = httpsCallable<{ userId: string; role: 'user' | 'admin' }, { user: ManagedUser }>(functions, 'setUserRole');
+    const result = await callable({ userId, role });
+    return result.data.user;
+  } catch (error) {
+    throw toFriendlyRoleError(error);
+  }
 }
