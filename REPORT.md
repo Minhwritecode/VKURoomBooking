@@ -8,7 +8,7 @@
 ## 1. General information & deliverables
 
 - **GitHub repository:** https://github.com/Minhwritecode/VKURoomBooking
-- **Live demo:** https://vku-room-booking-kappa.vercel.app
+- **Live demo:** https://vku-room-booking-michael.vercel.app
 - **Technical report PDF:** `output/pdf/VKURoomBooking-Report.pdf`
 
 VKU Space giải quyết nhu cầu tìm phòng học/phòng máy, xem trạng thái và đặt chỗ mà không phải kiểm tra cửa phòng thủ công. Ứng dụng chạy trên iOS, Android, web desktop và PWA trên MacBook; trải nghiệm được thiết kế local-first để các thao tác đã lưu vẫn dùng được khi mất mạng.
@@ -33,9 +33,10 @@ VKU Space giải quyết nhu cầu tìm phòng học/phòng máy, xem trạng th
 | 14 | Share booking | ✅ Complete | Native share sheet và Web Share API fallback. |
 | 15 | Admin management | ✅ Complete | Tạo/sửa/xóa/khóa phòng, đổi ảnh Firebase Storage, tên, tòa, tầng, capacity, equipment. |
 | 16 | Admin analytics | ✅ Complete | Counters và progress card cho rooms, bookings, check-ins, waitlist, reviews. |
-| 17 | Motion/UI system | ✅ Complete | Splash/auth morph Three.js, native GL/web canvas fallback, responsive layout, safe-area, reduce-motion fallback. |
-| 18 | Docker & cloud path | ✅ Complete | Node API + Docker Compose; Firebase Authentication, Firestore rooms/bookings/waitlist/reviews, transaction và Storage adapter. |
-| 19 | MacBook PWA | ✅ Complete | `manifest.json`, service worker shell cache, installable standalone web output. |
+| 17 | Admin account management | ✅ Complete | Tìm tài khoản, cấp/hạ User/Admin qua Firebase Callable Functions + Admin SDK; chặn tự nâng quyền và hạ Admin cuối cùng. |
+| 18 | Motion/UI system | ✅ Complete | Splash/auth morph Three.js, native GL/web canvas fallback, responsive layout, safe-area, reduce-motion fallback. |
+| 19 | Docker & cloud path | ✅ Complete | Node API + Docker Compose; Firebase Authentication, Firestore rooms/bookings/waitlist/reviews, transaction và Storage adapter. |
+| 20 | MacBook PWA | ✅ Complete | `manifest.json`, service worker shell cache, installable standalone web output. |
 
 ## 3. Architecture & data flow
 
@@ -55,6 +56,10 @@ Expo / React Native / Expo Web
         │      ├── Firestore users / rooms / bookings / waitlist / reviews
         │      ├── booking transaction + uid-based Security Rules
         │      └── Storage room image upload (admin only)
+        │
+        ├── Firebase Callable Functions + Admin SDK
+        │      ├── listUsers (admin-only, paginated)
+        │      └── setUserRole (claims + profile, safety guards)
         │
         ├── Node REST API in Docker (local adapter)
         └── Web PWA: manifest + service-worker cache
@@ -116,6 +121,10 @@ Three.js chỉ được dùng ở splash/auth/hero và có native `expo-gl`, web
 ### Challenge 5 — Ảnh phòng và quản trị
 
 Admin Room Manager cập nhật local ngay lập tức và ghi Firestore khi Firebase đã cấu hình; quyền ghi được Security Rules giới hạn cho `role: admin`. Ảnh từ ImagePicker được upload vào Storage với giới hạn MIME/size; khi chưa cấu hình thì URI local vẫn giữ được cho phiên demo.
+
+### Challenge 6 — Cấp quyền tài khoản an toàn
+
+Màn hình Admin → Quản lý tài khoản chỉ hiển thị cho Admin. Client gọi Callable Function thay vì tự ghi role; Admin SDK cập nhật Firestore profile và custom claims, chặn tự đổi quyền và không cho hạ Admin cuối cùng. Tài khoản vừa được đổi role cần đăng nhập lại để nhận token mới.
 
 ## 6. Verification and reproducibility
 
